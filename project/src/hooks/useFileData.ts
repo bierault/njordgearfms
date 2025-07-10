@@ -256,8 +256,16 @@ export const useFileData = (projectContext: boolean = false, showTrash: boolean 
   }, [currentWorkspace, currentProject, currentFolder, projectContext, loadFiles]);
 
   // Real-time subscription for workspace-scoped changes
+  const channelRef = useRef<any>(null);
+
   useEffect(() => {
     if (!currentWorkspace?.id) return;
+
+    // Clean up previous channel if it exists
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
 
     const channel = supabase
       .channel(`files_changes_${currentWorkspace.id}`)
@@ -279,8 +287,13 @@ export const useFileData = (projectContext: boolean = false, showTrash: boolean 
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [currentWorkspace, loadFiles]);
 
@@ -354,9 +367,9 @@ export const useFileData = (projectContext: boolean = false, showTrash: boolean 
         dbUpdates.tags = normalizedTags;
       }
       if (updates.isFavorite !== undefined) dbUpdates.is_favorite = updates.isFavorite;
-      if (updates.projectId !== undefined) dbUpdates.project_id = updates.projectId || null;
-      if (updates.folderId !== undefined) dbUpdates.folder_id = updates.folderId || null;
-      if (updates.fileUrl !== undefined) dbUpdates.file_url = updates.fileUrl || null;
+      if (updates.projectId !== undefined) dbUpdates.project_id = updates.projectId || undefined;
+      if (updates.folderId !== undefined) dbUpdates.folder_id = updates.folderId || undefined;
+      if (updates.fileUrl !== undefined) dbUpdates.file_url = updates.fileUrl || undefined;
 
       console.log('Updating file:', fileId, 'with changes:', dbUpdates);
 

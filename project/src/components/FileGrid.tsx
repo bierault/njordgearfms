@@ -859,9 +859,11 @@ const FileGrid: React.FC<FileGridProps> = ({
                 Show All Files
               </button>
             )}
-            <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200">
-              Upload Files
-            </button>
+            {(activeView === 'dashboard' || activeView === 'all-files') && (
+              <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200">
+                Upload Files
+              </button>
+            )}
           </div>
         )}
       </div>

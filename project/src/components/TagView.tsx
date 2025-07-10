@@ -58,6 +58,8 @@ const TagView: React.FC<TagViewProps> = ({
   const [tagList, setTagList] = useState<string[]>([]);
   const [showRenameTag, setShowRenameTag] = useState<string | null>(null);
   const [renameTagValue, setRenameTagValue] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState('');
 
   // Check permissions
   const canEditTags = userRole === 'admin';
@@ -419,7 +421,19 @@ const TagView: React.FC<TagViewProps> = ({
   };
 
   const tagStats = getTagStats();
-  const selectedTagFiles = selectedTag ? tagStats.find(stat => normalizeTag(stat.tag) === normalizeTag(selectedTag))?.files || [] : [];
+  // Filtered tag stats based on search
+  const filteredTagStats = tagStats.filter(stat =>
+    stat.tag.toLowerCase().includes(tagSearch.toLowerCase())
+  );
+
+  // Files that match all selected tags
+  const selectedTagFiles = selectedTags.length > 0
+    ? files.filter(file =>
+        selectedTags.every(selTag =>
+          file.tags && file.tags.some(fileTag => normalizeTag(fileTag) === normalizeTag(selTag))
+        )
+      )
+    : [];
 
   if (loading) {
     return (
@@ -498,135 +512,121 @@ const TagView: React.FC<TagViewProps> = ({
 
       {/* Main Content */}
       <div className="flex gap-6">
-        {/* Tags List */}
+        {/* Tags List with Search and Multi-Select */}
         <div className="w-1/3">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
             <h3 className="text-white font-medium mb-4">
               Tags ({tagStats.length})
             </h3>
-            
+            <input
+              type="text"
+              value={tagSearch}
+              onChange={e => setTagSearch(e.target.value)}
+              placeholder="Search tags..."
+              className="w-full mb-3 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            />
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {tagStats.map((stat) => (
-                <div
-                  key={stat.tag}
-                  className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-200 ${
-                    selectedTag && normalizeTag(selectedTag) === normalizeTag(stat.tag)
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-                  }`}
-                  onClick={() => setSelectedTag(selectedTag && normalizeTag(selectedTag) === normalizeTag(stat.tag) ? null : stat.tag)}
-                >
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <div 
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: stat.color }}
-                    />
-                    {showRenameTag === stat.tag ? (
-                      <div className="flex items-center space-x-2 flex-1" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="text"
-                          value={renameTagValue}
-                          onChange={(e) => setRenameTagValue(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              handleRenameTag(stat.tag, renameTagValue);
-                            } else if (e.key === 'Escape') {
-                              setShowRenameTag(null);
-                              setRenameTagValue('');
-                            }
-                          }}
-                          className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          autoFocus
-                        />
+              {filteredTagStats.map((stat: TagStats) => {
+                const isSelected = selectedTags.some(selTag => normalizeTag(selTag) === normalizeTag(stat.tag));
+                return (
+                  <div
+                    key={stat.tag}
+                    className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                      isSelected
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                    }`}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedTags(selectedTags.filter(selTag => normalizeTag(selTag) !== normalizeTag(stat.tag)));
+                      } else {
+                        setSelectedTags([...selectedTags, stat.tag]);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          if (isSelected) {
+                            setSelectedTags(selectedTags.filter(selTag => normalizeTag(selTag) !== normalizeTag(stat.tag)));
+                          } else {
+                            setSelectedTags([...selectedTags, stat.tag]);
+                          }
+                        }}
+                        className="mr-2 accent-blue-500"
+                        onClick={e => e.stopPropagation()}
+                      />
+                      <div 
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: stat.color }}
+                      />
+                      <span className="text-sm font-medium truncate">{stat.tag}</span>
+                      <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
+                        isSelected
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-slate-600 text-slate-300'
+                      }`}>
+                        {stat.count}
+                      </span>
+                    </div>
+                    {/* Tag Actions - Only for admins */}
+                    {canEditTags && showRenameTag !== stat.tag && (
+                      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <button
-                          onClick={() => handleRenameTag(stat.tag, renameTagValue)}
-                          disabled={!renameTagValue.trim() || isProcessing}
-                          className="p-1 rounded text-green-400 hover:text-green-300 disabled:opacity-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowRenameTag(stat.tag);
+                            setRenameTagValue(stat.tag);
+                          }}
+                          className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-600 transition-colors duration-200"
+                          title="Rename tag"
                         >
-                          <Check className="w-4 h-4" />
+                          <Edit3 className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={() => {
-                            setShowRenameTag(null);
-                            setRenameTagValue('');
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowDeleteConfirm(stat.tag);
                           }}
-                          className="p-1 rounded text-slate-400 hover:text-white"
+                          className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-slate-600 transition-colors duration-200"
+                          title="Delete tag"
                         >
-                          <X className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
-                    ) : (
-                      <span className="text-sm font-medium truncate">{stat.tag}</span>
                     )}
-                    <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
-                      selectedTag && normalizeTag(selectedTag) === normalizeTag(stat.tag)
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-slate-600 text-slate-300'
-                    }`}>
-                      {stat.count}
-                    </span>
                   </div>
-                  
-                  {/* Tag Actions - Only for admins */}
-                  {canEditTags && showRenameTag !== stat.tag && (
-                    <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowRenameTag(stat.tag);
-                          setRenameTagValue(stat.tag);
-                        }}
-                        className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-600 transition-colors duration-200"
-                        title="Rename tag"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowDeleteConfirm(stat.tag);
-                        }}
-                        className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-slate-600 transition-colors duration-200"
-                        title="Delete tag"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {tagStats.length === 0 && (
+                );
+              })}
+              {filteredTagStats.length === 0 && (
                 <div className="text-center py-8">
-                  <Tag className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-                  <p className="text-slate-500 text-sm">No tags found</p>
-                  <p className="text-slate-600 text-xs">
-                    Tags will appear as you add them to files
-                  </p>
+                  <span className="text-slate-400">No tags found</span>
                 </div>
               )}
             </div>
           </div>
         </div>
-
-        {/* Files with Selected Tag */}
+        {/* Files List for Selected Tags */}
         <div className="flex-1">
-          {selectedTag ? (
+          {selectedTags.length === 0 ? (
+            <div className="text-center py-16 text-slate-400">
+              <Tag className="w-8 h-8 mx-auto mb-4" />
+              <p>Select one or more tags to view files with those tags.</p>
+            </div>
+          ) : selectedTagFiles.length === 0 ? (
+            <div className="text-center py-16 text-slate-400">
+              <Tag className="w-8 h-8 mx-auto mb-4" />
+              <p>No files found with all selected tags.</p>
+            </div>
+          ) : (
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">
-                  Files tagged with "{selectedTag}" ({selectedTagFiles.length})
-                </h3>
-                <button
-                  onClick={() => setSelectedTag(null)}
-                  className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors duration-200"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {selectedTagFiles.map((file) => (
+              <h3 className="text-white font-medium mb-4">
+                Files with {selectedTags.length} tag{selectedTags.length > 1 ? 's' : ''} selected
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {selectedTagFiles.map(file => (
                   <FileCard
                     key={file.id}
                     file={file}
@@ -635,67 +635,6 @@ const TagView: React.FC<TagViewProps> = ({
                     userRole={userRole}
                   />
                 ))}
-              </div>
-
-              {selectedTagFiles.length === 0 && (
-                <div className="text-center py-12">
-                  <FileText className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-white mb-2">No files with this tag</h3>
-                  <p className="text-slate-400">Files tagged with "{selectedTag}" will appear here.</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-8">
-              <div className="text-center">
-                <Hash className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-white mb-2">Select a tag to view files</h3>
-                <p className="text-slate-400">
-                  Click on any tag from the list to see all files that have been tagged with it.
-                </p>
-              </div>
-
-              {/* Tag Statistics */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-                <div className="bg-slate-700 rounded-lg p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                      <Tag className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-sm">Total Tags</p>
-                      <p className="text-2xl font-bold text-white">{tagStats.length}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-700 rounded-lg p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-sm">Tagged Files</p>
-                      <p className="text-2xl font-bold text-white">
-                        {files.filter(f => f.tags && f.tags.length > 0).length}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-700 rounded-lg p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-sm">Most Used</p>
-                      <p className="text-lg font-bold text-white truncate">
-                        {tagStats.length > 0 ? tagStats[0].tag : 'None'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           )}

@@ -8,7 +8,9 @@ import {
   Save,
   Loader,
   ArrowRight,
-  FileText
+  FileText,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { supabase } from '../lib/supabase';
@@ -132,6 +134,120 @@ const CreateProjectModal: React.FC<{
   );
 };
 
+// Edit Project Modal Component
+const EditProjectModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: any) => void;
+  initialData: any;
+}> = ({ isOpen, onClose, onSubmit, initialData }) => {
+  const [name, setName] = useState(initialData?.name || '');
+  const [description, setDescription] = useState(initialData?.description || '');
+  const [color, setColor] = useState(initialData?.color || '#3B82F6');
+
+  useEffect(() => {
+    setName(initialData?.name || '');
+    setDescription(initialData?.description || '');
+    setColor(initialData?.color || '#3B82F6');
+  }, [initialData]);
+
+  const colors = [
+    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', 
+    '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
+    '#F97316', '#6366F1', '#14B8A6', '#F43F5E'
+  ];
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit({
+      ...initialData,
+      name: name.trim(),
+      description: description.trim(),
+      color
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-white">Edit Project</h3>
+            <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors duration-200">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">Project Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter project name..."
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">Description (Optional)</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Project description..."
+                rows={3}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                <Palette className="w-4 h-4 inline mr-1" />
+                Color
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {colors.map((colorOption) => (
+                  <button
+                    key={colorOption}
+                    type="button"
+                    onClick={() => setColor(colorOption)}
+                    className={`w-8 h-8 rounded-lg transition-all duration-200 ${
+                      color === colorOption
+                        ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-800 scale-110'
+                        : 'hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: colorOption }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex space-x-3 pt-4">
+              <button
+                type="submit"
+                disabled={!name.trim()}
+                className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200"
+              >
+                <Save className="w-4 h-4" />
+                <span>Save Changes</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors duration-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ProjectSelectionView: React.FC<ProjectSelectionViewProps> = ({ onProjectSelect }) => {
   const { currentWorkspace } = useWorkspace();
   const [projects, setProjects] = useState<any[]>([]);
@@ -139,6 +255,10 @@ const ProjectSelectionView: React.FC<ProjectSelectionViewProps> = ({ onProjectSe
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateProject, setShowCreateProject] = useState(false);
+  const [showEditProject, setShowEditProject] = useState(false);
+  const [editProjectData, setEditProjectData] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteProjectData, setDeleteProjectData] = useState<any>(null);
 
   useEffect(() => {
     if (currentWorkspace?.id) {
@@ -147,6 +267,7 @@ const ProjectSelectionView: React.FC<ProjectSelectionViewProps> = ({ onProjectSe
   }, [currentWorkspace]);
 
   const loadProjects = async () => {
+    if (!currentWorkspace?.id) return;
     try {
       setLoading(true);
       setError(null);
@@ -169,6 +290,7 @@ const ProjectSelectionView: React.FC<ProjectSelectionViewProps> = ({ onProjectSe
   };
 
   const createProject = async (projectData: any) => {
+    if (!currentWorkspace?.id) return;
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -185,6 +307,39 @@ const ProjectSelectionView: React.FC<ProjectSelectionViewProps> = ({ onProjectSe
       setShowCreateProject(false);
     } catch (err) {
       console.error('Error creating project:', err);
+    }
+  };
+
+  const updateProject = async (projectData: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({
+          name: projectData.name,
+          description: projectData.description,
+          color: projectData.color
+        })
+        .eq('id', projectData.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setProjects(prev => prev.map(p => p.id === data.id ? data : p));
+      setShowEditProject(false);
+    } catch (err) {
+      console.error('Error updating project:', err);
+    }
+  };
+  const deleteProject = async (projectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
+      if (error) throw error;
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      setShowDeleteConfirm(false);
+    } catch (err) {
+      console.error('Error deleting project:', err);
     }
   };
 
@@ -283,34 +438,48 @@ const ProjectSelectionView: React.FC<ProjectSelectionViewProps> = ({ onProjectSe
             {filteredProjects.map((project) => (
               <div
                 key={project.id}
-                onClick={() => onProjectSelect(project)}
-                className="group bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 hover:border-slate-600 transition-all duration-200 cursor-pointer"
+                className="group bg-slate-800 border border-slate-700 rounded-xl p-6 hover:bg-slate-750 hover:border-slate-600 transition-all duration-200 cursor-pointer relative"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div 
-                    className="w-12 h-12 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: project.color }}
+                <div className="absolute top-3 right-3 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditProjectData(project); setShowEditProject(true); }}
+                    className="p-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-slate-700 transition-colors duration-200"
+                    title="Edit Project"
                   >
-                    <Folder className="w-6 h-6 text-white" />
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors duration-200" />
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteProjectData(project); setShowDeleteConfirm(true); }}
+                    className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-700 transition-colors duration-200"
+                    title="Delete Project"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                
-                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors duration-200">
-                  {project.name}
-                </h3>
-                
-                {project.description && (
-                  <p className="text-slate-400 text-sm mb-4 line-clamp-2">
-                    {project.description}
-                  </p>
-                )}
-                
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
-                  <div className="flex items-center space-x-1">
-                    <FileText className="w-3 h-3" />
-                    <span>Project</span>
+                <div onClick={() => onProjectSelect(project)}>
+                  <div className="flex items-start justify-between mb-4">
+                    <div 
+                      className="w-12 h-12 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: project.color }}
+                    >
+                      <Folder className="w-6 h-6 text-white" />
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors duration-200" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors duration-200">
+                    {project.name}
+                  </h3>
+                  {project.description && (
+                    <p className="text-slate-400 text-sm mb-4 line-clamp-2">
+                      {project.description}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
+                    <div className="flex items-center space-x-1">
+                      <FileText className="w-3 h-3" />
+                      <span>Project</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -325,6 +494,38 @@ const ProjectSelectionView: React.FC<ProjectSelectionViewProps> = ({ onProjectSe
         onClose={() => setShowCreateProject(false)}
         onSubmit={createProject}
       />
+      {/* Edit Project Modal */}
+      <EditProjectModal
+        isOpen={showEditProject}
+        onClose={() => setShowEditProject(false)}
+        onSubmit={updateProject}
+        initialData={editProjectData}
+      />
+      {/* Delete Project Confirmation */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-white mb-4">Delete Project</h3>
+              <p className="text-slate-400 mb-6">Are you sure you want to delete the project <span className="text-white font-semibold">{deleteProjectData?.name}</span>? This action cannot be undone.</p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteProject(deleteProjectData.id)}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
