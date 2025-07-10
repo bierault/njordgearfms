@@ -3,6 +3,7 @@ import { X, Upload, File, CheckCircle, AlertCircle, Loader, Zap, Clock } from 'l
 import { useFileUpload } from '../hooks/useFileUpload';
 import { FileRecord } from '../lib/supabase';
 import TagInput from './TagInput';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -30,6 +31,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [autoTaggingEnabled, setAutoTaggingEnabled] = useState(true);
   const [recentUploads, setRecentUploads] = useState<RecentUpload[]>([]);
+  const { currentWorkspace } = useWorkspace();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploads, isUploading, uploadFiles } = useFileUpload();
@@ -67,8 +70,12 @@ const UploadModal: React.FC<UploadModalProps> = ({
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
-
+    setErrorMessage(null);
     try {
+      if (!currentWorkspace) {
+        setErrorMessage('No workspace selected. Please select a workspace before uploading.');
+        return;
+      }
       console.log('Starting upload process with auto-tagging:', autoTaggingEnabled);
       console.log('Manual tags:', manualTags);
       
@@ -113,7 +120,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
       
     } catch (error) {
       console.error('Upload failed:', error);
-      // Don't close modal on error so user can retry
+      setErrorMessage(error instanceof Error ? error.message : 'Upload failed. Please try again.');
     }
   };
 
@@ -392,6 +399,9 @@ const UploadModal: React.FC<UploadModalProps> = ({
 
         {/* Footer */}
         <div className="flex items-center justify-end space-x-3 p-6 border-t border-slate-700">
+          {errorMessage && (
+            <div className="text-red-400 text-sm mr-auto">{errorMessage}</div>
+          )}
           <button
             onClick={onClose}
             disabled={isUploading}
@@ -402,7 +412,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
           {selectedFiles.length > 0 && (
             <button
               onClick={handleUpload}
-              disabled={isUploading}
+              disabled={isUploading || !currentWorkspace}
               className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 text-lg"
             >
               {isUploading && <Loader className="w-4 h-4 animate-spin" />}
