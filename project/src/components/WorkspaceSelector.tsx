@@ -213,7 +213,7 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
                 >
                   <div 
                     className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: workspace.color }}
+                    style={{ backgroundColor: workspace.color || '#3B82F6' }}
                   />
                   <div className="flex-1 min-w-0">
                     {editingWorkspace === workspace.id ? (
@@ -298,7 +298,7 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
         >
           <div 
             className="w-3 h-3 rounded-full flex-shrink-0"
-            style={{ backgroundColor: currentWorkspace.color }}
+            style={{ backgroundColor: currentWorkspace.color || '#3B82F6' }}
           />
           <div className="flex-1 text-left min-w-0">
             <div className="text-white font-medium truncate">
