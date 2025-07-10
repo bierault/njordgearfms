@@ -255,19 +255,19 @@ export const useFileData = (projectContext: boolean = false, showTrash: boolean 
     }
   }, [currentWorkspace, currentProject, currentFolder, projectContext, loadFiles]);
 
-  // Real-time subscription for workspace-scoped changes
+  // Real-time subscription for file changes
   const channelRef = useRef<any>(null);
-
   useEffect(() => {
     if (!currentWorkspace?.id) return;
 
-    // Clean up previous channel if it exists
+    // Always clean up previous channel before creating a new one
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
 
-    const channel = supabase
+    // Always create a new channel instance
+    const newChannel = supabase
       .channel(`files_changes_${currentWorkspace.id}`)
       .on('postgres_changes', 
         { 
@@ -284,10 +284,11 @@ export const useFileData = (projectContext: boolean = false, showTrash: boolean 
             }, 50);
           }
         }
-      )
-      .subscribe();
+      );
 
-    channelRef.current = channel;
+    // Subscribe only once per new channel instance
+    newChannel.subscribe();
+    channelRef.current = newChannel;
 
     return () => {
       if (channelRef.current) {
