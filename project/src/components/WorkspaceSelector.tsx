@@ -21,6 +21,7 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [accessibleWorkspaces, setAccessibleWorkspaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingAccessible, setLoadingAccessible] = useState(true);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { currentWorkspace, workspaces, switchWorkspace, updateWorkspace, loading: workspaceLoading, error } = useWorkspace();
@@ -29,7 +30,7 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
   useEffect(() => {
     const loadUserAndWorkspaces = async () => {
       try {
-        setLoading(true);
+        setLoadingAccessible(true);
         
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
@@ -98,7 +99,7 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
         console.error('Error loading user and workspaces:', error);
         setAccessibleWorkspaces(workspaces);
       } finally {
-        setLoading(false);
+        setLoadingAccessible(false);
       }
     };
     
@@ -158,15 +159,6 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
     setEditName('');
   };
 
-  // Loading state
-  if (loading || workspaceLoading) {
-    return (
-      <div className={`animate-pulse ${className}`}>
-        <div className="h-10 bg-slate-700 rounded-lg w-48"></div>
-      </div>
-    );
-  }
-
   // Error state
   if (error) {
     return (
@@ -190,7 +182,7 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
   }
 
   // If no accessible workspaces, show message
-  if (accessibleWorkspaces.length === 0) {
+  if (!loadingAccessible && accessibleWorkspaces.length === 0) {
     return (
       <div className={`${className}`}>
         <div className="flex items-center space-x-2 px-3 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
@@ -210,7 +202,7 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
         >
           {/* Workspace List */}
           <div className="px-2 py-2">
-            {accessibleWorkspaces.map((workspace) => (
+            {(loadingAccessible ? workspaces : accessibleWorkspaces).map((workspace) => (
               <div
                 key={workspace.id}
                 className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-slate-700 transition-colors duration-200 group"
@@ -229,7 +221,13 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(e)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSaveEdit({
+                              stopPropagation: () => {},
+                            } as unknown as React.MouseEvent);
+                          }
+                        }}
                         onClick={(e) => e.stopPropagation()}
                         className="w-full px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         autoFocus
@@ -244,7 +242,6 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
                     <Check className="w-4 h-4 text-blue-400 flex-shrink-0" />
                   )}
                 </button>
-                
                 {/* Edit/Save/Cancel buttons - Only for admins */}
                 {currentUser?.role === 'admin' && (
                   <div className="flex items-center space-x-1">
@@ -280,7 +277,6 @@ const WorkspaceSelector: React.FC<WorkspaceSelectorProps> = ({
             ))}
           </div>
         </div>
-
         {/* Workspace Manager Modal - Only for admins */}
         {currentUser?.role === 'admin' && (
           <WorkspaceManager

@@ -85,7 +85,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
           *,
           workspace:workspaces(id, name, color)
         `)
-        .eq('role', 'employee');
+        .in('role', ['admin', 'employee']);
 
       if (error) {
         console.error('Error loading employees:', error);
@@ -100,8 +100,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
         
         // Add primary workspace
         if (user.workspace) {
-          workspaceData.push(user.workspace.name);
-          workspaceIds.push(user.workspace.id);
+          if (Array.isArray(user.workspace)) {
+            if (user.workspace[0]) {
+              workspaceData.push(user.workspace[0].name);
+              workspaceIds.push(user.workspace[0].id);
+            }
+          } else {
+            workspaceData.push(user.workspace.name);
+            workspaceIds.push(user.workspace.id);
+          }
         }
         
         // Get additional workspaces from project_access
@@ -116,7 +123,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
               if (project.workspace_id && !workspaceIds.includes(project.workspace_id)) {
                 workspaceIds.push(project.workspace_id);
                 if (project.workspaces) {
-                  workspaceData.push(project.workspaces.name);
+                  if (Array.isArray(project.workspaces)) {
+                    if ((project.workspaces[0] as any) && typeof (project.workspaces[0] as any).name === 'string') {
+                      workspaceData.push((project.workspaces[0] as any).name);
+                    }
+                  } else if (typeof project.workspaces === 'object' && project.workspaces !== null && 'name' in (project.workspaces as any) && typeof (project.workspaces as any).name === 'string') {
+                    workspaceData.push((project.workspaces as any).name);
+                  }
                 }
               }
             }
@@ -127,14 +140,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
           id: user.id,
           name: user.name || 'Unknown',
           email: user.email,
-          workspaces: workspaceData,
-          workspaceIds: workspaceIds,
-          status: 'active', // TODO: Determine from auth status
+          workspaces: workspaceData as string[],
+          workspaceIds: workspaceIds as string[],
+          status: 'active' as const, // TODO: Determine from auth status
           createdAt: new Date(user.created_at).toLocaleDateString(),
           lastLogin: undefined, // TODO: Get from auth.users
-          project_access: user.project_access || [],
+          project_access: (user.project_access || []) as string[],
           role: user.role
-        };
+        } satisfies Employee;
       }));
 
       setEmployees(employeesWithWorkspaces);

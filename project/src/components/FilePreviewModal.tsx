@@ -217,13 +217,13 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = memo(({
 
         <div className="flex flex-col lg:flex-row max-h-[calc(90vh-140px)]">
           {/* Preview Section */}
-          <div className="flex-1 p-6 border-r border-slate-700">
-            <div className="bg-slate-900 rounded-lg p-8 h-full flex items-center justify-center min-h-[300px] relative">
+          <div className="flex-1 flex items-center justify-center border-r border-slate-700 p-0 min-h-[400px]">
+            <div className="w-full h-full flex items-center justify-center">
               {file.type === 'image' ? (
                 <img
                   src={file.thumbnail || getFileUrl()}
                   alt={file.name}
-                  className="max-w-full max-h-full object-contain rounded-lg"
+                  className="w-full h-full max-w-[900px] max-h-[70vh] object-contain rounded-xl shadow-lg"
                   onError={(e) => {
                     // Fallback to file URL if thumbnail fails
                     const target = e.target as HTMLImageElement;
@@ -237,7 +237,7 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = memo(({
                   <VideoPlayer
                     src={getFileUrl()}
                     poster={file.thumbnail}
-                    className="max-w-full max-h-full rounded-lg"
+                    className="w-full h-full max-w-[900px] max-h-[70vh] rounded-xl shadow-lg"
                     showTimer={true}
                   />
                 </div>
@@ -245,7 +245,7 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = memo(({
                 <img
                   src={file.thumbnail}
                   alt={file.name}
-                  className="max-w-full max-h-full object-contain rounded-lg"
+                  className="w-full h-full max-w-[900px] max-h-[70vh] object-contain rounded-xl shadow-lg"
                 />
               ) : (
                 <div className="text-center">

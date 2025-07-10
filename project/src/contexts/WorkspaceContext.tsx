@@ -103,28 +103,44 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
 
     try {
       const savedWorkspaceId = localStorage.getItem('currentWorkspaceId');
-      
+      let workspace: Workspace | undefined = undefined;
       if (savedWorkspaceId && workspaces.length > 0) {
-        const workspace = workspaces.find(w => w.id === savedWorkspaceId);
-        if (workspace) {
-          setCurrentWorkspace(workspace);
-        } else {
-          // Fallback to first workspace if saved one doesn't exist
-          const firstWorkspace = workspaces[0];
-          setCurrentWorkspace(firstWorkspace);
-          localStorage.setItem('currentWorkspaceId', firstWorkspace.id);
-        }
+        workspace = workspaces.find(w => w.id === savedWorkspaceId);
+      }
+      if (workspace) {
+        setCurrentWorkspace(workspace);
       } else if (workspaces.length > 0) {
-        // No saved preference, use first workspace
+        // Fallback to first workspace if saved one doesn't exist
         const firstWorkspace = workspaces[0];
         setCurrentWorkspace(firstWorkspace);
         localStorage.setItem('currentWorkspaceId', firstWorkspace.id);
+        if (savedWorkspaceId) {
+          console.warn('Saved workspace not found, falling back to first workspace.');
+        }
+      } else {
+        // No workspaces at all, try to create a default one
+        (async () => {
+          try {
+            const defaultWorkspace = await createWorkspaceInternal({
+              name: 'My Workspace',
+              description: 'Default workspace for your files',
+              color: '#3B82F6'
+            });
+            setWorkspaces([defaultWorkspace]);
+            setCurrentWorkspace(defaultWorkspace);
+            localStorage.setItem('currentWorkspaceId', defaultWorkspace.id);
+            console.log('Created default workspace as fallback.');
+          } catch (err) {
+            console.error('Failed to create default workspace as fallback:', err);
+          }
+        })();
       }
     } catch (err) {
       console.error('Error setting current workspace:', err);
       // Fallback to first workspace if localStorage fails
       if (workspaces.length > 0) {
         setCurrentWorkspace(workspaces[0]);
+        localStorage.setItem('currentWorkspaceId', workspaces[0].id);
       }
     }
   }, [initialized, workspaces]);
@@ -178,8 +194,29 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
         console.log('Switching to workspace:', workspace.name);
         setCurrentWorkspace(workspace);
         localStorage.setItem('currentWorkspaceId', workspaceId);
+      } else if (workspaces.length > 0) {
+        // Fallback to first workspace if requested one is missing
+        const firstWorkspace = workspaces[0];
+        setCurrentWorkspace(firstWorkspace);
+        localStorage.setItem('currentWorkspaceId', firstWorkspace.id);
+        console.warn('Requested workspace not found, falling back to first workspace.');
       } else {
-        console.warn('Workspace not found:', workspaceId);
+        // No workspaces at all, try to create a default one
+        (async () => {
+          try {
+            const defaultWorkspace = await createWorkspaceInternal({
+              name: 'My Workspace',
+              description: 'Default workspace for your files',
+              color: '#3B82F6'
+            });
+            setWorkspaces([defaultWorkspace]);
+            setCurrentWorkspace(defaultWorkspace);
+            localStorage.setItem('currentWorkspaceId', defaultWorkspace.id);
+            console.log('Created default workspace as fallback (switch).');
+          } catch (err) {
+            console.error('Failed to create default workspace as fallback (switch):', err);
+          }
+        })();
       }
     } catch (err) {
       console.error('Error switching workspace:', err);
