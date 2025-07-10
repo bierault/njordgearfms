@@ -257,18 +257,23 @@ export const useFileData = (projectContext: boolean = false, showTrash: boolean 
 
   // Real-time subscription for file changes
   const channelRef = useRef<any>(null);
+  // Unique ID for this hook instance
+  const channelInstanceId = useRef(Math.random().toString(36).substring(2));
   useEffect(() => {
     if (!currentWorkspace?.id) return;
 
     // Always clean up previous channel before creating a new one
     if (channelRef.current) {
+      console.log('[useFileData] Cleaning up previous channel', channelRef.current.topic);
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
 
-    // Always create a new channel instance
+    // Always create a new channel instance with a unique name
+    const channelName = `files_changes_${currentWorkspace.id}_${channelInstanceId.current}`;
+    console.log('[useFileData] Creating new channel:', channelName);
     const newChannel = supabase
-      .channel(`files_changes_${currentWorkspace.id}`)
+      .channel(channelName)
       .on('postgres_changes', 
         { 
           event: '*', 
@@ -292,6 +297,7 @@ export const useFileData = (projectContext: boolean = false, showTrash: boolean 
 
     return () => {
       if (channelRef.current) {
+        console.log('[useFileData] Cleanup on unmount', channelRef.current.topic);
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
